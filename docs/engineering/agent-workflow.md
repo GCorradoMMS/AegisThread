@@ -109,8 +109,9 @@ These are two different kinds of agents and must not be confused:
   primary agent + subagents — **not** a LangGraph workflow.
 - **AegisThread runtime agents** are *product features*: long-running AI
   behavior inside the application, implemented in this repository as part of
-  the Symfony runtime and orchestrated with LangGraph, with their own model
-  integrations, tools, and permissions.
+  the Symfony runtime, with their own model integrations, tools, and
+  permissions. How runtime behavior is orchestrated is an open architectural
+  decision — see [ADR-0006](../adr/0006-ai-runtime-orchestration-deferred.md).
 
 Consequences: changes to AegisThread's runtime agents go through THIS workflow
 (brief → plan → implement → review), exactly like any other product code.

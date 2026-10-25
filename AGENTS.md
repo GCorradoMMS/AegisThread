@@ -7,11 +7,13 @@ Naming: the official project name is **AegisThread**. Use the slug
 `aegis-thread` for the repository, package names, container/infrastructure
 identifiers, and URLs. Do not use the previous working name "VeilDesk".
 
-AegisThread is a Symfony/PHP application that will embed a LangGraph-orchestrated
-AI runtime. The repository is currently an empty scaffold: the conventions
-below are binding for all code as it lands. They describe how we build, not a
-claim that features already exist — never assume a component, bundle, or test
-suite is present; inspect before planning.
+AegisThread is a Symfony/PHP application that will embed an AI runtime whose
+orchestration approach is intentionally undecided — see
+[ADR-0006](docs/adr/0006-ai-runtime-orchestration-deferred.md). The repository
+is currently an empty scaffold: the conventions below are binding for all code
+as it lands. They describe how we build, not a claim that features already
+exist — never assume a component, bundle, or test suite is present; inspect
+before planning.
 
 - Agent definitions, prompts, and permissions: `.opencode/agents/`
 - Workflow entry points: `.opencode/commands/` (`/feature`, `/review`,
