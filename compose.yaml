@@ -1,0 +1,120 @@
+# AegisThread — local development stack (M1, Pass C).
+#
+# Compose v5.6, no `version` key (obsolete). Single authority for the stack:
+# the DoctrineBundle recipe compose files under backend/ were deleted for
+# this reason. All ports are bound to 127.0.0.1 (no network exposure).
+#
+# postgres:  pgvector/pgvector:0.8.7-pg18 — PostgreSQL 18 + pgvector 0.8.7
+#            (ADR-0002: PostgreSQL is the source of truth).
+# migrate:   one-shot Doctrine migration runner (same backend image).
+# backend:   Symfony dev server (php -S) serving /api on container port 8080,
+#            published to the host on 127.0.0.1:8081 (8080 on the host is
+#            occupied by an unrelated service on this machine).
+# frontend:  Next.js standalone server (node:26-alpine) on 3000.
+#
+# Dev-only credentials. Constraint: POSTGRES_PASSWORD must not contain
+# characters that break compose interpolation ($, `) or URL parsing
+# (: / @ ? # [ ] %) — it is interpolated into POSTGRES_PASSWORD here and
+# embedded in DATABASE_URL by consumers. See .env.example.
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegisthread}
+      POSTGRES_USER: ${POSTGRES_USER:-aegisthread}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegisthread}
+    volumes:
+      # pg18 images moved PGDATA to /var/lib/postgresql/18/docker and declare
+      # VOLUME /var/lib/postgresql (upstream postgres:18 change). The named
+      # volume MUST therefore be mounted at /var/lib/postgresql — mounting
+      # /var/lib/postgresql/data would silently bypass persistence.
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # $$ escapes compose interpolation: the shell inside the container
+      # expands the container's own env at healthcheck time.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  migrate:
+    build: ./backend
+    image: aegis-thread-backend:dev
+    # --all-or-nothing: a half-applied migration set must not survive a
+    # failed run; the stack either comes up complete or not at all.
+    command: ["php", "bin/console", "doctrine:migrations:migrate", "--no-interaction", "--all-or-nothing"]
+    env_file:
+      # Compose reads the gitignored backend/.env when present (it wins over
+      # the baked-in defaults). `required: false` keeps a fresh clone working:
+      # without it, the image's baked .env (copied from .env.example) applies,
+      # which carries the same dev defaults.
+      - path: backend/.env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ./backend
+    image: aegis-thread-backend:dev
+    command: ["php", "-S", "0.0.0.0:8080", "-t", "public", "public/index.php"]
+    env_file:
+      - path: backend/.env
+        required: false
+    ports:
+      # Container port stays 8080 (in-container healthcheck unchanged); only
+      # the HOST port moved to 8081 — 127.0.0.1:8080 collides with another
+      # service on the development machine.
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Deliberate semantics (decided in M1 Pass C): this check answers
+      # "is the backend PROCESS alive", not "is every dependency healthy".
+      # /api/health returns 200 (healthy) or 503 (degraded — e.g. database
+      # down); both prove the PHP server responds, so both exit 0. Only a
+      # connection failure/timeout exits 1. A degraded dependency must not
+      # mark the backend container unhealthy — that would trigger restart
+      # loops while the real problem is elsewhere (docker events/orchestrator
+      # semantics). Dependency state remains observable via the endpoint body
+      # and the frontend rendering.
+      # Implemented with php -r (not curl): it depends only on the PHP binary
+      # guaranteed to exist in the image, not on incidental tooling in the
+      # base image. ignore_errors=true makes file_get_contents return the 503
+      # body instead of raising; @ suppresses the connection-failure warning.
+      # Caveat: any HTTP response passes, including 4xx/5xx from other routes
+      # — accepted trade-off for a liveness check.
+      test: ["CMD-SHELL", "php -r '$$c = stream_context_create([\"http\" => [\"timeout\" => 3, \"ignore_errors\" => true]]); $$b = @file_get_contents(\"http://127.0.0.1:8080/api/health\", false, $$c); exit(false === $$b ? 1 : 0);'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    environment:
+      # Server-only (never NEXT_PUBLIC_): the Next.js server process fetches
+      # the backend over the compose network. See frontend/.env.example.
+      BACKEND_BASE_URL: http://backend:8080
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # /healthz is a static route serving the standalone Node process;
+      # busybox wget ships with node:*-alpine.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  postgres_data:

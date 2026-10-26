@@ -1,0 +1,11 @@
+# Root compose environment — interpolation values for compose.yaml.
+# NEVER put real secrets here: this file's values are documented dev
+# defaults (see .env.example). Backend and frontend keep their own
+# .gitignore files for their own .env* trees.
+/.env
+/.env.local
+
+# Common junk
+.DS_Store
+Thumbs.db
+*.log
