@@ -1,0 +1,54 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+
+        # Pinned here (not in the DATABASE_URL DSN) so DBAL never has to
+        # detect the platform version from the connection — a bare DSN makes
+        # DBAL fail with `Invalid platform version ""`. Matches the
+        # pgvector/pgvector:0.8.7-pg18 image used by the root compose stack.
+        server_version: '18'
+
+        profiling_collect_backtrace: '%kernel.debug%'
+    orm:
+        validate_xml_mapping: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: true
+        mappings:
+            # XML mapping for domain entities: the Domain layer must stay
+            # framework-free, so PHP attributes (which would import Doctrine
+            # into src/Domain) are not an option. Mapping files live in
+            # config/doctrine as <Namespace>.<Class>.orm.xml (flat, dotted —
+            # the SymfonyFileLocator convention); the prefix must NOT end
+            # with a backslash or SymfonyFileLocator's prefix check fails.
+            AegisThread:
+                type: xml
+                is_bundle: false
+                dir: '%kernel.project_dir%/config/doctrine'
+                prefix: 'AegisThread\Domain'
+                alias: AegisThread
+
+when@test:
+    doctrine:
+        dbal:
+            # "TEST_TOKEN" is typically set by ParaTest
+            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

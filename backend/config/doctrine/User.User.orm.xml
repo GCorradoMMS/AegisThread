@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
+                                      https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+
+    <!-- XML mapping on purpose: PHP attributes would import Doctrine into
+         the Domain layer and violate its purity boundary. File name is
+         User.User.orm.xml (SymfonyFileLocator: namespace segments become
+         dots). `guid` maps to a native PostgreSQL uuid column while keeping
+         the PHP type a string; app-assigned identity (no generator). -->
+    <entity name="AegisThread\Domain\User\User" table="users">
+        <id name="id" type="guid" column="id"/>
+        <field name="email" type="string" length="255" nullable="false" unique="true"/>
+        <field name="createdAt" type="datetimetz_immutable" column="created_at" nullable="false"/>
+    </entity>
+</doctrine-mapping>
