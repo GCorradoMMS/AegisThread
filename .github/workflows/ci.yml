@@ -1,0 +1,234 @@
+# AegisThread CI — Milestone M1.
+#
+# Job → M1 outcome mapping (docs/development/implementation-plan.md, M1):
+#   docs-validation : the M0 documentation validation suite (V1–V18) runs in
+#                     CI — "CI runs the M0 validation suite" outcome.
+#   backend         : the backend image builds against the runtime of record
+#                     (PHP 8.5, ADR-0009); PHPUnit (default suites with the
+#                     unreachable-DB contract DSN, then --group requires-db
+#                     against live PostgreSQL), PHPStan, and PHP-CS-Fixer
+#                     run inside the image; the Compose stack comes up
+#                     health-checked and its healthy / degraded /
+#                     frontend-unavailable paths are exercised over HTTP.
+#   frontend        : the Next.js client slice lints, typechecks, and builds.
+#
+# Notes:
+#   - Every action is pinned to a full commit SHA (recorded in the PR that
+#     introduced this file).
+#   - The Compose stack binds to 127.0.0.1 on the runner; smoke curls run
+#     from the runner shell and work unchanged.
+#   - The default PHPUnit suites REQUIRE an unreachable DATABASE_URL (two
+#     contract tests assert database-unavailable behavior); the
+#     requires-db group runs against the live stack database afterwards.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-validation:
+    name: Documentation validation (V1–V18)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository (full history — V6 lists the merge-base diff)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Run the documentation validation suite
+        run: bash tools/validate-docs.sh
+
+  backend:
+    name: Backend (image, in-image checks, stack smoke, tests)
+    runs-on: ubuntu-latest
+    env:
+      # Unreachable by design: nothing listens on the runner at this port.
+      # The default PHPUnit suites assert database-unavailable behavior and
+      # fail against a reachable database.
+      UNREACHABLE_DB_DSN: 'pdo-pgsql://aegisthread:aegisthread@127.0.0.1:59999/aegisthread?connect_timeout=2'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build backend image (GHA layer cache; loaded so Compose reuses it)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          tags: aegis-thread-backend:dev
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Composer install (verify the lockfile; expected to be a no-op)
+        run: docker run --rm aegis-thread-backend:dev composer install --no-interaction
+
+      - name: Warm up dev cache, then PHPStan (one container — the analysis
+          reads the container produced by the warmup, and docker run
+          containers are ephemeral)
+        run: docker run --rm aegis-thread-backend:dev sh -c 'php bin/console cache:warmup --env=dev && vendor/bin/phpstan analyse --no-progress'
+
+      - name: PHP-CS-Fixer (fix inside a throwaway container, then verify on a fresh one)
+        run: |
+          docker run --rm aegis-thread-backend:dev composer cs-fix
+          docker run --rm aegis-thread-backend:dev composer cs-check
+
+      - name: Start the full stack
+        run: docker compose up -d --build
+
+      - name: Wait until every service reports healthy (bounded)
+        run: |
+          for i in $(seq 1 60); do
+            healthy=$(docker compose ps --format json | grep -c '"Health":"healthy"' || true)
+            if [ "$healthy" -ge 3 ]; then
+              echo "healthy services: $healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::timeout waiting for healthy services"
+          docker compose ps
+          docker compose logs --tail=50
+          exit 1
+
+      - name: Smoke — /api/health answers 200 in under 1 second
+        run: |
+          out=$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' http://127.0.0.1:8081/api/health)
+          echo "GET /api/health -> $out"
+          echo "$out" | awk '{exit !($1 == 200 && $2 < 1.0)}'
+
+      - name: Smoke — /api/configuration answers 200
+        run: |
+          out=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/configuration)
+          echo "GET /api/configuration -> $out"
+          test "$out" = 200
+
+      - name: Smoke — /api/configuration reports the live positive values
+        # Proves the report reflects the REAL stack: database reachable,
+        # migrations applied, pgvector present — not degraded defaults.
+        run: |
+          body=$(curl -fsS http://127.0.0.1:8081/api/configuration)
+          echo "$body"
+          echo "$body" | grep -q '"reachable":true'
+          echo "$body" | grep -q '"state":"up-to-date"'
+          echo "$body" | grep -q '"pgvector":{"available":true,"version":"0.8'
+
+      - name: Smoke — no configured secret or DSN password in any backend response
+        # Leak canaries: the configured dev APP_SECRET value and the
+        # DATABASE_URL password ("aegisthread"). Checked 2026-10-26 against
+        # the live stack: the bare string "aegisthread" does not legitimately
+        # occur in any of the three responses (health and configuration are
+        # allowlisted JSON; the not-found page is framework-generated), so
+        # the bare password is the assertable token — it matches every leak
+        # shape, not only the DSN userinfo form. Bodies are fetched without
+        # -f on purpose: the 404 page must leak nothing either.
+        #
+        # Canary validity: these tokens are assertable only while the
+        # backend image bakes exclusively .env.example (backend/.env.dev is
+        # dockerignored). If the image ever bakes .env.dev, or Compose sets
+        # APP_SECRET for the backend service, the tokens must be re-derived
+        # before this check remains meaningful.
+        #
+        # A flagged body is never echoed: printing a response that (by
+        # hypothesis) contains the secret would publish it into the CI log.
+        # Failure output names only the URL and the matched token class.
+        run: |
+          fail=0
+          for path in /api/health /api/configuration /api/nonexistent; do
+            body=$(curl -sS "http://127.0.0.1:8081${path}") || body=''
+            if grep -qE 'dev_only_not_a_secret_change_me|aegisthread' <<<"$body"; then
+              class=''
+              grep -q 'dev_only_not_a_secret_change_me' <<<"$body" && class='APP_SECRET canary'
+              grep -q 'aegisthread' <<<"$body" && class="${class:+${class}, }DSN-password canary"
+              echo "::error::canary token matched (${class}) in response from http://127.0.0.1:8081${path}"
+              fail=1
+            else
+              echo "no leak in GET ${path}"
+            fi
+          done
+          exit "$fail"
+
+      - name: Smoke — frontend renders the healthy state
+        run: |
+          page=$(curl -fsS http://127.0.0.1:3000/)
+          echo "$page" | grep -qi 'healthy'
+
+      - name: Degraded path — postgres down means 503 in under 1 second, frontend shows degraded
+        run: |
+          docker compose stop postgres
+          out=''
+          for i in $(seq 1 30); do
+            out=$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' http://127.0.0.1:8081/api/health || true)
+            if [ "${out%% *}" = 503 ]; then break; fi
+            sleep 1
+          done
+          echo "GET /api/health -> ${out:-<no answer>}"
+          test "${out%% *}" = 503 || { echo "::error::health never answered 503"; exit 1; }
+          echo "$out" | awk '{exit !($1 == 503 && $2 < 1.0)}'
+          curl -fsS http://127.0.0.1:3000/ | grep -qi 'degraded'
+          docker compose start postgres
+
+      - name: Frontend-unavailable path — backend down means the frontend shows its unavailable state
+        run: |
+          docker compose stop backend
+          found=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ 2>/dev/null | grep -qi 'Backend unavailable'; then
+              found=1
+              break
+            fi
+            sleep 1
+          done
+          test "$found" = 1 || { echo "::error::frontend never showed the unavailable state"; exit 1; }
+          docker compose start backend
+
+      - name: Default PHPUnit suites (unreachable-DB contract DSN)
+        run: docker compose run --rm -e "DATABASE_URL=$UNREACHABLE_DB_DSN" backend vendor/bin/phpunit
+
+      - name: Create the suffixed test database (one-time fixture for requires-db)
+        run: |
+          echo "SELECT 'CREATE DATABASE aegisthread_test' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aegisthread_test')\gexec" \
+            | docker compose exec -T postgres psql -U aegisthread -d aegisthread
+
+      - name: Live-database PHPUnit suites (--group requires-db)
+        run: docker compose run --rm backend vendor/bin/phpunit --group requires-db
+
+      - name: Tear down the stack (including the data volume)
+        run: docker compose down --volumes
+
+  frontend:
+    name: Frontend (lint, typecheck, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js 26 with npm cache
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
