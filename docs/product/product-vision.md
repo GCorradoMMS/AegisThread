@@ -128,4 +128,4 @@ work but are not product features:
 - [MVP scope](mvp-scope.md)
 - [System design](../architecture/system-design.md)
 - [Implementation plan](../development/implementation-plan.md)
-- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md)
+- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)

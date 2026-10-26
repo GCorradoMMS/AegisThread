@@ -6,8 +6,9 @@ Deciders: Human (constraint fixed 2026-10-24) / Architect (formalization)
 
 ## Context
 
-AegisThread is in the specification phase: no implementation exists yet, the
-team is small, and the first releases must prove the product rather than a
+At the time of this decision (2026-10-24), AegisThread was in the
+specification phase: no implementation existed yet, the team is small, and
+the first releases must prove the product rather than a
 distributed-systems design. The product nevertheless carries hard
 requirements — tenant isolation, per-construct retention and deletion,
 auditable authorization — that need real internal structure to be testable.

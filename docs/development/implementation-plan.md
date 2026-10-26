@@ -11,21 +11,23 @@ This document turns the architecture
 ([MVP scope](../product/mvp-scope.md)) into ordered milestones, records every
 human-fixed decision with exactly one authoritative location, and keeps the
 open questions that gate progress in a single register. It contains no
-implementation claims: M0 (this increment) is documentation only.
+implementation claims: M0 (Increment 0) was documentation only.
 
 ## Ground rules
 
 - **Status vocabulary (normative everywhere):** *Verified* = external fact
-  checked against a primary source on 2026-10-24 (URL required); *Proposed*
-  = recommended, not confirmed; *Open* = tracked in the register below as
-  OQ-nn.
+  checked against a primary source (URL required), with the check date
+  recorded where the status appears; the research dossier's baseline check
+  date is 2026-10-24, and facts re-checked later (for example during M1)
+  carry their own later check date; *Proposed* = recommended, not confirmed;
+  *Open* = tracked in the register below as OQ-nn.
 - Milestones change only via reviewed pull requests.
 - Register entries are never deleted; they are closed with a resolution note
   (date and decision reference) once answered.
 
 ## Milestones
 
-### M0 — Documentation foundation (this increment)
+### M0 — Documentation foundation (Increment 0, complete)
 
 - **Goal:** the complete specification foundation — product vision, MVP
   scope, system design, the ADR set, glossary, decision register, and README
@@ -55,11 +57,18 @@ implementation claims: M0 (this increment) is documentation only.
   ([ADR-0005](../adr/0005-ohttp-behind-transport-abstraction.md)) exist as
   application-owned interfaces with no adapter behind them yet; minimal
   local-account scaffolding exists, with no security baseline claims beyond
-  what OQ-16's resolution provides.
+  what OQ-16's resolution provides; a minimal Next.js client slice exists
+  (OQ-14 closed 2026-10-25); PHPUnit, static-analysis, and formatting
+  baselines are configured; the development stack runs under Docker Compose
+  with health checks; CI runs the validation suite plus the code checks
+  against the runtime of record.
 - **Definition of done:** CI is green on the skeleton; the two seams are
-  reviewed; the Symfony version line is fixed (OQ-02) and recorded in an ADR
-  or register resolution.
-- **Depends on:** M0; resolution of OQ-02; resolution of OQ-16.
+  reviewed; the Symfony version line is fixed as the 8.x line
+  ([ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)).
+- **Depends on:** M0; resolution of OQ-02 (closed 2026-10-25,
+  [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)). OQ-16 remains
+  open by explicit human decision (2026-10-25): M1 delivers account
+  scaffolding only and makes no security-baseline claims.
 
 ### M2 — Ingestion and persistence
 
@@ -92,7 +101,7 @@ implementation claims: M0 (this increment) is documentation only.
 - **Definition of done:** C-3, C-4, and C-5 demonstrable; no model provider
   dependency outside the seam; real model calls still gated on OQ-05 (test
   adapters unblock development).
-- **Depends on:** M2; test adapters behind OQ-05; UI scope decision OQ-14;
+- **Depends on:** M2; test adapters behind OQ-05; web client in scope (OQ-14 closed 2026-10-25);
   OQ-17 (user-only visibility governs until decided).
 
 ### M4 — RAG and evaluation harness
@@ -131,11 +140,12 @@ implementation claims: M0 (this increment) is documentation only.
   with per-tool authorization independent of the model; the SDK Tier-3
   upgrade policy is applied (OQ-04); retention periods and deletion SLAs are
   implemented per OQ-11; the deferred threat model is executed (OQ-12);
-  operational visibility is complete (C-8).
+  operational visibility is complete (C-8); the full-surface demonstration
+  includes the Next.js web client (OQ-14 closed 2026-10-25).
 - **Definition of done:** all eight capabilities (C-1 through C-8) are
   demonstrable together; open register items are closed or accepted by the
   human owner with recorded rationale.
-- **Depends on:** M3, M4, M5; resolution of OQ-04, OQ-11, OQ-12, OQ-14.
+- **Depends on:** M3, M4, M5; resolution of OQ-04, OQ-11, OQ-12.
 
 ## Decision traceability table
 
@@ -155,6 +165,8 @@ Each human-fixed decision maps to **exactly one** authoritative location.
 | D-10 | Privacy, tenant isolation, prompt injection, outbound restrictions, retention, and deletion are day-one architectural concerns. | [System design: Privacy and data protection requirements](../architecture/system-design.md#privacy-and-data-protection-requirements) | [ADR-0002](../adr/0002-postgresql-source-of-truth.md), [ADR-0003](../adr/0003-separated-ai-state-persistence.md) |
 | D-11 | Users can inspect, correct, and delete persistent memories about them, including derived data. | [MVP scope: FR-MEM](../product/mvp-scope.md#functional-requirements) | [ADR-0003](../adr/0003-separated-ai-state-persistence.md) |
 | D-12 | Citations reference evidence actually retrieved for the answer; model-invented references never appear. | [MVP scope: FR-CIT](../product/mvp-scope.md#functional-requirements) | [MVP scope: C-2](../product/mvp-scope.md#capability-table) |
+| D-13 | The Symfony version line is the 8.x line (starting at 8.1) with PHP 8.5 as the Docker runtime of record. | [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md#decision) | [System design: Technology stack](../architecture/system-design.md#technology-stack) |
+| D-14 | A Next.js web client is in MVP scope; delivery lands in the affected milestones. | [Register: OQ-14 resolution note](#open-questions-and-assumptions-register) | [MVP non-goals](../product/mvp-scope.md#mvp-non-goals) |
 
 \* Note: the same principle appears in `AGENTS.md` as daily engineering
 guidance; that file is guidance, not the decision record — the authoritative
@@ -167,7 +179,7 @@ Register entries are never deleted; they are closed with a resolution note.
 | ID | Question | Impact if unresolved | Proposed next step | Status |
 |---|---|---|---|---|
 | OQ-01 | Which tenancy and deployment topology applies (single-tenant deployment per customer, or multi-tenant deployment)? Tenant data isolation is a hard requirement either way; only the topology is undecided. | Determines whether isolation is enforced at the schema level or the deployment level; blocks M2 storage design. | Decide in an architecture review with the human owner before M2; record the outcome as an ADR. | Open |
-| OQ-02 | Symfony version line: 7.4 LTS or the 8.x line? | Fixes the PHP floor (8.2 vs 8.4) and the support window; blocks the M1 skeleton bootstrap. | Decide at M1 start using the verified fact-set in the [technology stack](../architecture/system-design.md#technology-stack); record as a short ADR. | Open |
+| OQ-02 | Symfony version line: 7.4 LTS or the 8.x line? | Fixes the PHP floor (8.2 vs 8.4) and the support window; blocks the M1 skeleton bootstrap. | Decide at M1 start using the verified fact-set in the [technology stack](../architecture/system-design.md#technology-stack); record as a short ADR. | Closed 2026-10-25 — ADR-0009. |
 | OQ-03 | Commit-pin strategy and adoption gate for the release-less OHTTP candidate library. | An unpinned, release-less dependency is an uncontrolled supply chain; blocks M5. | Security-review the single upstream commit; define the commit-pin and acceptance tests before M5. | Open |
 | OQ-04 | Upgrade and maturity policy for the Tier-3 MCP PHP SDK. | The youngest SDK tier carries breaking-protocol churn risk for the tool surface; blocks M6. | Define version-pinning and upgrade monitoring at M6 entry. | Open |
 | OQ-05 | Which AI provider and embedding model? | Gates real model calls in M3 (M3 proceeds on test adapters; real calls stay gated); the embedding-model choice fixes embedding dimensions, which M2's vector schema needs (the vector capability itself remains Proposed per [ADR-0002](../adr/0002-postgresql-source-of-truth.md) pending M2 confirmation) before schema freeze; determines which provider retention/training terms must be recorded at the boundary. | Evaluate candidates behind the [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md) seam, including their retention/training terms (zero-retention endpoints or user-facing disclosure); the human owner selects the provider and embedding model; embedding dimensions must be fixed before M2 schema freeze; provider selection gates M3 real model calls; record the choice and its privacy terms as an ADR. | Open |
@@ -179,7 +191,7 @@ Register entries are never deleted; they are closed with a resolution note.
 | OQ-11 | Retention periods and deletion service levels per construct — including failure/dead-letter retention bounds per transport; reconciliation of deletion with backup and restore cycles. | Without values, per-construct retention periods and operator-facing deletion SLAs beyond C-5's provisional test bound are undefined; this blocks M6 retention/deletion governance implementation and may affect M4 evaluation-run governance. | The human owner sets per-construct retention values and deletion SLAs; record them here and reference them from the product documents. | Open |
 | OQ-12 | Scope and timing of the deferred threat model. | Attacker perspectives stay unexamined while features land; must not stay deferred past M6. | Schedule and scope the threat-model workshop after M4; record its outputs as security decisions; include operator/insider access and application-log content policy in the threat-model scope. | Open |
 | OQ-13 | Hosting topology for the independently operated relay and gateway. | Meaningful unlinkability requires independent operation; without it the submission-path differentiator is hollow; blocks M5. | Identify the independent operator or hosting split and the operational contract before M5. | Open |
-| OQ-14 | UI scope in the MVP (the proposed Next.js client). | Determines whether a web client is a deliverable or the API is the only interface; affects M3/M4 scope and the M6 full-surface demonstration; if the client is in scope, its delivery is added to the affected milestones' outcomes at decision time. | Product decision with the human owner before M3. | Open |
+| OQ-14 | UI scope in the MVP (the proposed Next.js client). | Determines whether a web client is a deliverable or the API is the only interface; affects M3/M4 scope and the M6 full-surface demonstration; if the client is in scope, its delivery is added to the affected milestones' outcomes at decision time. | Product decision with the human owner before M3. | Closed 2026-10-25 — human decision: Next.js web client in MVP scope; first slice delivered in M1. M4 requires no milestone wording change (recorded 2026-10-25): its outcomes are retrieval/evaluation-focused and consume the API. |
 | OQ-15 | Contingency triggers for the single-maintainer OHTTP library (fork or replace). | An abandoned dependency could strand the OHTTP path; without defined triggers the contingency fires late. | Define activity and maintenance triggers and the fork decision path alongside OQ-03 before M5. | Open |
 | OQ-16 | What is the authentication and session security baseline for the MVP (credential storage, session management, brute-force protection)? The scope note "minimal local accounts" carries no security baseline yet. | Without a decision, the account scaffolding M1 delivers and M3 user-facing features lack an auth baseline. | The human owner decides the auth FR baseline before M1; record it in the MVP scope requirements. | Open |
 | OQ-17 | Is team/workspace-level sharing of documents or memories within a tenant in product scope? | Determines whether object-level authorization defaults (user-only visibility) are ever relaxed and how the FR-MEM exclusivity wording and the C-5 denial tests are scoped; resolution amends FR-MEM and C-5 explicitly. | Product decision before M3; the default until then is user-only visibility per the [privacy section](../architecture/system-design.md#privacy-and-data-protection-requirements). | Open |
@@ -237,8 +249,13 @@ grep -q "agent-workflow.md" docs/adr/0006-ai-runtime-orchestration-deferred.md
 
 # V6 (AC-14/non-goals): guards the sanctioned-edit scope and the non-goals —
 # only new files plus the two sanctioned edits changed.
-git diff --name-only 595b1d5
-git diff 595b1d5 -- AGENTS.md docs/engineering/agent-workflow.md
+# Adapted for M1, 2026-10-25: the M0 anchor commit 595b1d5 guarded Increment
+# 0's sanctioned-edit scope, which is complete. Replaced (advisory) by a
+# merge-base diff listing for reviewer visibility. Original M0 check
+# preserved below as history.
+# git diff --name-only 595b1d5
+# git diff 595b1d5 -- AGENTS.md docs/engineering/agent-workflow.md
+base=$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD~1); git diff --name-only "$base" || true
 
 # V7 (AC-1, AC-18): relative .md link integrity across README.md and docs/.
 # The file-existence part is normative; the anchor part (V7b) is best-effort —
@@ -276,17 +293,28 @@ grep -c "gateway sees content by design" docs/architecture/system-design.md  # e
 grep -c "independently operated" docs/architecture/system-design.md       # expect >= 1
 
 # V10 (AC-18): every new document and README carries the dated header line.
+# Adapted for M1, 2026-10-25: the pattern accepts Increment 0 documents
+# dated 2026-10-24 and M1 documents dated 2026-10-25, and the file list is
+# extended with ADR-0009 (glob widened to 000[1-9]) and the new M1 document
+# docs/development/setup.md.
 for f in README.md docs/product/product-vision.md docs/product/mvp-scope.md \
          docs/product/glossary.md docs/architecture/system-design.md \
-         docs/development/implementation-plan.md docs/adr/000[1-8]-*.md; do
-  grep -q "^Date: 2026-10-24" "$f" && echo "OK $f" || echo "MISSING DATE $f"
+         docs/development/implementation-plan.md docs/adr/000[1-9]-*.md \
+         docs/development/setup.md; do
+  grep -qE "^Date: 2026-10-(24|25)" "$f" && echo "OK $f" || echo "MISSING DATE $f"
 done
 
 # V11 (AC-11): the verified date appears at least 5 times in system-design.md.
+# Not adapted for M1 (2026-10-25): the count remains ≥ 5 after the M1 edits —
+# the PHP, Symfony, Next.js, and CI-tooling rows were re-dated (the pgvector
+# row gained a Verified 2026-10-25 deployment fact); every row verified on
+# 2026-10-24 keeps that date.
 grep -o "2026-10-24" docs/architecture/system-design.md | wc -l   # expect >= 5
 
-# V12 (AC-2): exactly 12 decision rows in the traceability table.
-grep -cE '^\| D-' docs/development/implementation-plan.md          # expect 12
+# V12 (AC-2): exactly 14 decision rows in the traceability table.
+# Adapted for M1, 2026-10-25: rows D-13 (ADR-0009, OQ-02 closure) and D-14
+# (OQ-14 closure) were appended, raising the expected count from 12 to 14.
+grep -cE '^\| D-' docs/development/implementation-plan.md          # expect 14
 
 # V13 (AC-16): the register has exactly the contiguous rows OQ-01..OQ-17 and
 # no row has an empty cell.
@@ -342,7 +370,9 @@ docs-reviewer.
   no offline renderer ran in this increment.
 - The validation suite above is committed as runnable literals and is the
   seed of the M1 CI tooling; its patterns are carried over unchanged.
-- The date 2026-10-24 is fixed for every document in this increment.
+- The date 2026-10-24 is fixed for every Increment 0 document in this
+  repository; documents added in M1 (ADR-0009, the setup guide) are dated
+  2026-10-25, the day their facts were verified and decisions recorded.
 
 ## Links
 
@@ -350,4 +380,4 @@ docs-reviewer.
 - [MVP scope](../product/mvp-scope.md)
 - [System design](../architecture/system-design.md)
 - [Glossary](../product/glossary.md)
-- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md)
+- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)

@@ -8,9 +8,10 @@ Date: 2026-10-24
 
 This document defines the architecture of AegisThread at the level of modules
 and responsibilities. **This document defines modules and responsibilities
-only — no class names, file paths, or data structures.** (The only file names
-used anywhere in this corpus are the documents and ADRs themselves.) Names of
-external technologies' features in the
+only — no class names, file paths, or data structures.** (The specification
+documents proper — vision, scope, design, plan, glossary, ADRs — name no
+implementation files; the M1 setup guide documents the concrete tree.) Names
+of external technologies' features in the
 [technology stack](#technology-stack) table (for example, index types of an
 extension) are verified facts about those technologies, not design
 prescriptions for AegisThread.
@@ -433,7 +434,8 @@ below are authoritative for the architecture
 ### Threat model: explicitly deferred
 
 A full threat model — attacker personas, abuse cases, trust-boundary
-analysis — is out of scope for this specification increment and is tracked as
+analysis — is out of scope for the specification increment (2026-10-24) and
+is tracked as
 [OQ-12](../development/implementation-plan.md#open-questions-and-assumptions-register).
 It must be produced before the MVP is treated as operationally complete. The
 deferral does not weaken the requirements above; they are binding regardless
@@ -456,19 +458,20 @@ incompatible with product requirements are rejected.
 Status vocabulary (Verified / Proposed / Open) as normatively defined in the
 [implementation plan ground rules](../development/implementation-plan.md#ground-rules).
 Facts below come from
-the research dossier verified on 2026-10-24; nothing outside it carries a
-Verified status.
+the research dossier verified on 2026-10-24; rows re-verified during M1
+(2026-10-25) carry their own later date in the Verified column.
 
 | Item | Role | Status | Source(s) | Verified |
 |---|---|---|---|---|
-| PHP ≥ 8.2 | Language floor | **Verified** — driven by the OHTTP candidate library's PHP ^8.2 requirement; a sufficient floor for the Symfony 7.4 LTS line; the Symfony 8.x line requires PHP ≥ 8.4 — see [OQ-02](../development/implementation-plan.md#open-questions-and-assumptions-register) | https://packagist.org/packages/gcorradomms/ohttphp | 2026-10-24 |
-| Symfony (version line) | Application framework | **Open** — 7.4 LTS vs 8.x undecided ([OQ-02](../development/implementation-plan.md#open-questions-and-assumptions-register)). Verified fact-set: 7.4 LTS released 2025-11-27, bug fixes until 2028-11-30, security until 2029-11-30, PHP ≥ 8.2, latest 7.4.21; 8.1 current stable since 2026-05-29, PHP ≥ 8.4, maintained until 2027-01-31; 8.2 due 2026-11; 8.4 LTS expected 2027-11; 8.0 EOL 2026-07-31 | https://symfony.com/releases and https://endoflife.date/symfony | 2026-10-24 |
+| PHP ≥ 8.4 floor (Symfony 8.x); runtime of record PHP 8.5 (Docker) | Language floor and runtime | **Verified** — Symfony 8.x requires PHP ≥ 8.4; PHP 8.5 is the runtime of record (Docker image `php:8.5-cli`, [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)). The OHTTP candidate library's PHP ^8.2 requirement remains satisfied (that fact verified 2026-10-24) | https://www.php.net/supported-versions.php, https://symfony.com/releases, https://packagist.org/packages/gcorradomms/ohttphp | 2026-10-25 |
+| Symfony (version line) | Application framework | **Decided** — 8.x line adopted starting at 8.1 ([OQ-02](../development/implementation-plan.md#open-questions-and-assumptions-register) closed 2026-10-25 via [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)); re-verified fact-set: 8.1 current stable since 2026-05-29, PHP ≥ 8.4, latest 8.1.9, all support ends 2027-01-31; 8.2 due 2026-11; 8.4 LTS expected 2027-11; the project tracks the 8.x cadence until the 8.4 LTS | https://symfony.com/releases and https://endoflife.date/symfony | 2026-10-25 |
 | gcorradomms/ohttphp | OHTTP (RFC 9458) client/relay/gateway library | **Proposed** — release-less: dev-main only on Packagist (published 2026-10-12), no tagged release, single-commit repository, 0.x HPKE dependency (paragonie/hpke ^0.8.0); requires commit-pinning plus contingency (OQ-03, OQ-15) and integration only behind [ADR-0005](../adr/0005-ohttp-behind-transport-abstraction.md). Covers all three OHTTP roles; PSR-7/17/18/15 based; PHP ^8.2 with ext-gmp and ext-openssl; default-deny target policy with fail-closed behavior; RFC 9458 Appendix A interop vectors in its test suite | https://github.com/GCorradoMMS/ohttphp and https://packagist.org/packages/gcorradomms/ohttphp; RFC 9458: https://www.rfc-editor.org/rfc/rfc9458.html | 2026-10-24 |
 | MCP PHP SDK (mcp/sdk) | Tool capability surface | **Proposed** — official SDK, GA 2025-09-05 (PHP Foundation + Symfony team + Anthropic MCP team collaboration); framework-agnostic, servers and clients, STDIO + HTTP transports, sessions, authorization; Symfony bundle integration exists. **Tier 3 in the official SDK tier list — the youngest tier — recorded as a maturity risk** requiring an upgrade policy (OQ-04) | https://github.com/modelcontextprotocol/php-sdk, https://packagist.org/packages/mcp/sdk, https://php.sdk.modelcontextprotocol.io, https://blog.modelcontextprotocol.io/posts/2025-09-05-php-sdk, https://modelcontextprotocol.io/docs/2026-07-28/sdk | 2026-10-24 |
-| PostgreSQL + pgvector ≥ 0.8.7 | Source of truth + vector retrieval | **Proposed** — pgvector 0.8.x line, latest 0.8.7 (2026-10-01), supports PostgreSQL 13+; HNSW indexes, iterative scans for filtered queries, halfvec quantization. Pin ≥ 0.8.7: CVE-2026-3172 (buffer overflow in parallel HNSW builds) fixed in 0.8.2 | https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md and https://www.postgresql.org/about/news/pgvector-082-released-3245/ | 2026-10-24 |
+| PostgreSQL + pgvector ≥ 0.8.7 | Source of truth + vector retrieval | **Proposed** — pgvector 0.8.x line, latest 0.8.7 (2026-10-01), supports PostgreSQL 13+; HNSW indexes, iterative scans for filtered queries, halfvec quantization. Pin ≥ 0.8.7: CVE-2026-3172 (buffer overflow in parallel HNSW builds) fixed in 0.8.2; deployed in the development environment as the pinned image pgvector/pgvector:0.8.7-pg18 (Verified 2026-10-25); the vector-retrieval capability itself remains Proposed pending M2 confirmation per [ADR-0002](../adr/0002-postgresql-source-of-truth.md) | https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md and https://www.postgresql.org/about/news/pgvector-082-released-3245/ | 2026-10-24 |
 | Symfony Messenger | Asynchronous task transport | **Proposed** — transport choice **Open** ([OQ-07](../development/implementation-plan.md#open-questions-and-assumptions-register)). Verified capabilities: AMQP transport via the amqp extension (RabbitMQ, amqps TLS with cacert) and Redis streams transport (redis extension ≥ 4.3, Redis server ^5.0); retry strategy (retries, delay, multiplier, jitter), failure transport, supervised consume workers | https://symfony.com/doc/current/messenger.html | 2026-10-24 |
-| Next.js 16.x | Web client (if UI in MVP) | **Proposed** — 16.x current stable (16.4.0, 2026-10-07); App Router stable and production-documented; Next.js 15 EOL 2026-10-21; monthly security-release cadence since 2026-07. MVP UI scope undecided ([OQ-14](../development/implementation-plan.md#open-questions-and-assumptions-register)) | https://nextjs.org/blog/next-16-4, https://github.com/vercel/next.js/releases, https://www.herodevs.com/blog-posts/nextjs-eol-dates-version-support-timeline | 2026-10-24 |
+| Next.js 16.x | Web client | **In scope** — web client in MVP scope ([OQ-14](../development/implementation-plan.md#open-questions-and-assumptions-register) closed 2026-10-25); 16.x current (16.4.x), first slice delivered in M1 | https://nextjs.org/blog/next-16-4, https://github.com/vercel/next.js/releases, https://www.herodevs.com/blog-posts/nextjs-eol-dates-version-support-timeline | 2026-10-25 |
 | AI provider / embedding model | Model and embedding access | **Open** — no provider or model selected ([OQ-05](../development/implementation-plan.md#open-questions-and-assumptions-register)); all access behind [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md) | none — selection pending | 2026-10-24 (status review) |
+| CI and quality tooling (GitHub Actions, PHPUnit, PHPStan, PHP-CS-Fixer, Docker Compose) | Test/CI/quality baseline | **Verified** — tooling baseline for M1; checks run in Docker against the runtime of record | https://docs.github.com/actions, https://phpunit.de, https://phpstan.org, https://cs.symfony.com | 2026-10-25 |
 
 ## Architectural decision index
 
@@ -482,6 +485,7 @@ Verified status.
 | [ADR-0006](../adr/0006-ai-runtime-orchestration-deferred.md) | AI runtime orchestration approach: decision deferred | Orchestration undecided; bounded in-process agent loop is the working default. | Open |
 | [ADR-0007](../adr/0007-mcp-capability-boundary.md) | MCP as a scoped capability boundary | Tools reachable only through MCP with application authorization independent of the model. | Accepted |
 | [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md) | Provider-neutral AI integration boundary | All model/embedding access behind an application-owned seam; no provider named. | Accepted |
+| [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md) | Symfony 8.x line and PHP 8.5 runtime | 8.x line starting at 8.1; PHP 8.5 Docker runtime; upgrade cadence to 8.4 LTS accepted. | Accepted |
 
 ## Glossary
 
@@ -493,4 +497,4 @@ All terms are defined once in the [glossary](../product/glossary.md).
 - [MVP scope](../product/mvp-scope.md)
 - [Implementation plan](../development/implementation-plan.md)
 - [Glossary](../product/glossary.md)
-- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0008](../adr/0008-provider-neutral-ai-boundary.md)
+- [ADR-0001](../adr/0001-modular-monolith-first.md) through [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)

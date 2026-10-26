@@ -11,8 +11,9 @@ redefining them.
 
 The product defined by this documentation: a Symfony/PHP application for
 privacy-conscious, retrieval-based AI assistance over an organization's own
-documents. The project is in the specification phase; this corpus is the
-specification, not a description of working software.
+documents. The project began in a specification phase (2026-10-24); the
+corpus now combines the specification with the implemented M1 skeleton
+(see the [setup guide](../development/setup.md)).
 
 ### Tenant
 
