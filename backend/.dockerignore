@@ -1,0 +1,9 @@
+# Heavy/regenerable and secret files only — tests stay in the image so CI
+# can run phpunit in-container.
+vendor/
+var/
+.env
+.env.*
+!.env.example
+.php-cs-fixer.cache
+.phpunit.result.cache
