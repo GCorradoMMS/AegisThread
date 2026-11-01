@@ -228,7 +228,11 @@ jobs:
         run: npm run lint
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        # The script is self-contained: `next typegen` first generates
+        # next-env.d.ts and the route types (gitignored), then tsc runs.
+        # A bare `tsc --noEmit` fails on a fresh checkout because
+        # next-env.d.ts does not exist until generated (CI run #1).
+        run: npm run typecheck
 
       - name: Build
         run: npm run build
