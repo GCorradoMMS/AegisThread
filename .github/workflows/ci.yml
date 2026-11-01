@@ -10,7 +10,8 @@
 #                     run inside the image; the Compose stack comes up
 #                     health-checked and its healthy / degraded /
 #                     frontend-unavailable paths are exercised over HTTP.
-#   frontend        : the Next.js client slice lints, typechecks, and builds.
+#   frontend        : the Next.js client slice lints, typechecks (with
+#                     generated route types), unit-tests (Vitest), and builds.
 #
 # Notes:
 #   - Every action is pinned to a full commit SHA (recorded in the PR that
@@ -205,7 +206,7 @@ jobs:
         run: docker compose down --volumes
 
   frontend:
-    name: Frontend (lint, typecheck, build)
+    name: Frontend (lint, typecheck, test, build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -233,6 +234,9 @@ jobs:
         # A bare `tsc --noEmit` fails on a fresh checkout because
         # next-env.d.ts does not exist until generated (CI run #1).
         run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
 
       - name: Build
         run: npm run build
