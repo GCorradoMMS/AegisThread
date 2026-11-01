@@ -60,14 +60,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build backend image (GHA layer cache; loaded so Compose reuses it)
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: backend
-          tags: aegis-thread-backend:dev
-          load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # Plain `docker build` instead of docker/build-push-action. Incident:
+      # CI run #1 (commit 51f066e) failed at this step ~1 s in, at the
+      # action/setup level; the runner logs could not be retrieved, while
+      # the identical build exits 0 locally. Mitigation: a plain build with
+      # the same tag — no action in the path. Trade-off: the GHA layer cache
+      # is dropped; a measured fully uncached build takes ~29 s
+      # (2026-10-31, `docker build --no-cache`), acceptable for this job.
+      # D-9 note: revisit build caching only with runner-log evidence.
+      - name: Build backend image (plain docker build; tag reused by in-image checks and Compose)
+        run: docker build -t aegis-thread-backend:dev backend
 
       - name: Composer install (verify the lockfile; expected to be a no-op)
         run: docker run --rm aegis-thread-backend:dev composer install --no-interaction
