@@ -64,7 +64,10 @@ final class DatabaseMigrations
     /**
      * Fails with a precise message when the configured database does not
      * exist (the migrations themselves must never run against the wrong
-     * database).
+     * database), and asserts fixture-DB isolation: the CONNECTED database
+     * (per SELECT current_database()) must end in "_test" and must not be
+     * the dev/base database "aegisthread" — a kernel booted with the
+     * dbname_suffix absent would otherwise pass the connectivity check.
      *
      * Fixture state: in the test environment the connection's database name
      * is suffixed (`<db>_test`); create it once, e.g.:
@@ -85,5 +88,25 @@ final class DatabaseMigrations
                 ." expected database name: {$dbname}",
             );
         }
+
+        $connected = $connection
+            ->executeQuery('SELECT current_database()')
+            ->fetchOne();
+        \assert(\is_string($connected));
+
+        Assert::assertStringEndsWith(
+            '_test',
+            $connected,
+            'The requires-db suite must run against the suffixed test'
+            .' database (<db>_test), not a database without the suffix'
+            .' (no TEST_TOKEN suffix supported yet);'
+            ." connected to {$connected}.",
+        );
+        Assert::assertNotSame(
+            'aegisthread',
+            $connected,
+            'The requires-db suite must never run against the dev/base'
+            ." database; connected to {$connected}.",
+        );
     }
 }
