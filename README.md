@@ -35,8 +35,9 @@ The M1 skeleton is implemented:
   (healthy / degraded / unavailable states).
 - Docker Compose development stack with health checks, all services bound
   to 127.0.0.1.
-- Quality baselines: PHPUnit, PHPStan, PHP-CS-Fixer, ESLint/TypeScript;
-  the documentation validation suite (V1–V18); GitHub Actions CI.
+- Quality baselines: PHPUnit, PHPStan, PHP-CS-Fixer, Vitest,
+  ESLint/TypeScript; the documentation validation suite (V1–V18);
+  GitHub Actions CI.
 
 Not implemented yet: authentication — the security baseline is an open
 decision ([OQ-16](docs/development/implementation-plan.md#open-questions-and-assumptions-register));

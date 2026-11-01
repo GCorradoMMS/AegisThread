@@ -12,8 +12,9 @@ what M1 delivers.
 
 ## Prerequisites
 
-- Docker Engine with Compose v2 (`docker compose version` must work):
-  it runs the whole stack.
+- Docker Engine with Compose **v5.6 or newer** (`docker compose version`
+  must work): the stack's `compose.yaml` is authored against v5.6
+  syntax — it runs the whole stack.
 - The frontend checks additionally need Node.js with npm on the host
   (CI uses Node 26). PHP and Composer are never needed on the host —
   every backend check runs inside the backend image.
@@ -116,6 +117,25 @@ Where each check runs:
 | Backend default test suite | inside the backend image | see below — requires an **unreachable** database |
 | Backend database tests | inside the backend image | `docker compose run --rm backend vendor/bin/phpunit --group requires-db` (requires the live postgres of the stack) |
 | Frontend lint / typecheck / build | host, in `frontend/` | `npm ci`, then `npm run lint`, `npm run typecheck`, `npm run build` |
+| Frontend unit tests | host, in `frontend/` | `npm run test` (`npm run test:watch` during development) |
+
+Notes:
+
+- The frontend `typecheck` script runs `next typegen` before
+  `tsc --noEmit`: the generated `next-env.d.ts` and route types are
+  gitignored, so type-checking without generating them first fails on a
+  fresh checkout. Generating first makes the check work on any clone.
+- The phpunit configuration pins `APP_ENV` to `test` with PHPUnit's
+  `force="true"` attribute. This is deliberate: real process environment
+  (for example an `APP_ENV=dev` injected by a `docker compose run` on a
+  machine with a local `backend/.env`) would otherwise win and boot the
+  suites onto the dev kernel, where `framework.test` is not applied.
+- On a dev machine with a local, gitignored `backend/.env`, `docker
+  compose run` injects that file's variables into the check containers —
+  they apply to every in-container check, which is safe by construction:
+  the phpunit suites are force-pinned to `APP_ENV=test` by
+  `phpunit.xml.dist` (see the previous note), and the default suite
+  overrides `DATABASE_URL` as documented in the backend details below.
 
 Backend details:
 

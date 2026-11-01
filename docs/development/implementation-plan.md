@@ -69,6 +69,22 @@ implementation claims: M0 (Increment 0) was documentation only.
   [ADR-0009](../adr/0009-symfony-8x-line-and-php-runtime.md)). OQ-16 remains
   open by explicit human decision (2026-10-25): M1 delivers account
   scaffolding only and makes no security-baseline claims.
+- **Verification note (2026-10-31):** the full local check set replicating
+  CI passed on this date against the M1 skeleton — the documentation
+  validation suite (V1–V18); the backend image build and in-image checks
+  (Composer install, PHPStan, PHP-CS-Fixer); both PHPUnit runs (the default
+  suites against an unreachable-DSN contract, then `--group requires-db`
+  against live PostgreSQL); the frontend lint, typecheck (with generated
+  route types), Vitest unit tests, and build on a fresh checkout; and the
+  Compose healthy/degraded/unavailable smokes plus a persistence
+  round-trip. One CI finding is recorded: CI run #1 (commit 51f066e) failed
+  at the backend image-build step (~1 s in, at the action level; runner
+  logs unretrievable, while the identical build exits 0 locally), so CI
+  builds the image with a plain `docker build` until runner-log evidence
+  justifies revisiting caching. Per the engineering workflow, this delivery
+  is verified before the fact and lands through the reviewed-PR mechanics
+  (reviewers inspect the diff, CI runs on the PR, a human decides to
+  merge).
 
 ### M2 — Ingestion and persistence
 
@@ -344,11 +360,11 @@ grep -E '^\| C-' docs/product/mvp-scope.md | awk -F'|' '$5 !~ /[0-9%]|min|hour|m
 # V16 (AC-5): the exact no-claims policy sentence appears in mvp-scope.md.
 grep -cF "No retrieval-quality or answer-quality claim may be published anywhere in this repository until evaluation results produced by the procedure below exist and are cited." docs/product/mvp-scope.md  # expect 1
 
-# V17 (AC-9, AC-10, advisory): no overclaiming language under README.md and
+# V17 (AC-9, AC-10): no overclaiming language under README.md and
 # docs/. Self-exclusion keeps this file from matching its own pattern.
 grep -RInE --exclude=implementation-plan.md "is end-to-end|anonymous|untraceable|fully private" README.md docs/ ; echo "exit=$?"  # expect no output, exit 1
 
-# V18 (AC-17, advisory): no quality adjectives in README.md.
+# V18 (AC-17): no quality adjectives in README.md.
 grep -InE "fast|scalable|secure|powerful|production-ready|best-in-class" README.md ; echo "exit=$?"  # expect no output, exit 1
 ```
 
@@ -373,6 +389,8 @@ docs-reviewer.
 - The date 2026-10-24 is fixed for every Increment 0 document in this
   repository; documents added in M1 (ADR-0009, the setup guide) are dated
   2026-10-25, the day their facts were verified and decisions recorded.
+  README.md — an Increment 0 document — was re-dated to 2026-10-25 during
+  the M1 status rewrite of its status block.
 
 ## Links
 
